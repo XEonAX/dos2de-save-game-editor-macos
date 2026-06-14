@@ -72,7 +72,7 @@ Save files are typically found at:
   PlayerProfiles/<ProfileName>/Savegames/Story/<SaveName>/<SaveName>.lsv
 ```
 
-> **Note:** Transfer save files from a Windows PC, Steam Cloud, or a CrossOver/Wine/Parallels installation.
+> **Note:** DOS2DE has native macOS support (10.13.6+). On Apple Silicon Macs, the game runs via Rosetta 2 — save files are fully compatible.
 
 ## Development
 
