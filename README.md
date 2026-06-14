@@ -5,8 +5,8 @@ A native macOS save game editor for **Divinity: Original Sin 2 — Definitive Ed
 Edit character stats, attributes, abilities, inventory items, equipment, runes, boosters, and manage mod dependencies — all from your Mac.
 
 <p align="center">
-  <img src="assets/screenshot-character.png" alt="Character Editor" width="400"/>
-  <img src="assets/screenshot-inventory.png" alt="Inventory Editor" width="400"/>
+  <img src="assets/editor.png" alt="Character Editor" width="400"/>
+  <img src="assets/ingame.png" alt="In-Game Reference" width="400"/>
 </p>
 
 ## Features
