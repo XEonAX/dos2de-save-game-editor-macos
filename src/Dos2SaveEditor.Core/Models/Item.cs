@@ -70,8 +70,34 @@ public class Item
 
     // ── Generation parameters ─────────────────────────────────
     public string? GenerationBase { get; set; }
+    public string? GenerationStatsId { get; set; }
     public List<string> Boosters { get; set; } = [];
     public int? LevelOverride { get; set; }
+
+    // ── Stat overrides (stored directly in save) ──────────────
+    /// <summary>Gold value override (-1 = not overridden)</summary>
+    public int GoldValueOverwrite { get; set; } = -1;
+
+    /// <summary>Weight value override (-1 = not overridden)</summary>
+    public int WeightValueOverwrite { get; set; } = -1;
+
+    /// <summary>Damage type override (empty = not overridden)</summary>
+    public string? DamageTypeOverwrite { get; set; }
+
+    /// <summary>Durability / HP (-1 = default)</summary>
+    public int HP { get; set; } = -1;
+
+    /// <summary>Actual stats entry name to look up in game data</summary>
+    public string? StatsEntryName { get; set; }
+
+    /// <summary>DeltaMods applied to this item (raw strings)</summary>
+    public List<string> DeltaMods { get; set; } = [];
+
+    /// <summary>Rune boosts applied (raw strings)</summary>
+    public List<string> RuneBoosts { get; set; } = [];
+
+    // ── Resolved stats (from game data, set by StatLookupService) ──
+    public ResolvedItemStats? ResolvedStats { get; set; }
 
     // ── Tree navigation ───────────────────────────────────────
     public List<Item> Children { get; set; } = [];
@@ -80,4 +106,76 @@ public class Item
     // ── Internal: LSLib node references for write-back ────────
     internal LSLib.LS.Node? _itemNode;
     internal LSLib.LS.Node? _statsNode;
+}
+
+/// <summary>
+/// Computed/resolved item stats from game definition data.
+/// Populated by StatLookupService when game data is available.
+/// </summary>
+public class ResolvedItemStats
+{
+    /// <summary>Damage range (for weapons)</summary>
+    public int MinDamage { get; set; }
+    public int MaxDamage { get; set; }
+
+    /// <summary>Damage type (e.g., "Piercing", "Physical")</summary>
+    public string? DamageType { get; set; }
+
+    /// <summary>Armor value (for armor items)</summary>
+    public int ArmorValue { get; set; }
+
+    /// <summary>Magic armor value (for armor items)</summary>
+    public int MagicArmorValue { get; set; }
+
+    /// <summary>Item weight in grams</summary>
+    public int Weight { get; set; }
+
+    /// <summary>Gold value</summary>
+    public int GoldValue { get; set; }
+
+    /// <summary>Required level to equip</summary>
+    public int RequiredLevel { get; set; }
+
+    /// <summary>Durability / max HP</summary>
+    public int MaxHP { get; set; }
+
+    /// <summary>Weapon range</summary>
+    public float WeaponRange { get; set; }
+
+    /// <summary>Critical chance bonus</summary>
+    public int CriticalChance { get; set; }
+
+    /// <summary>All extra/unrecognized stat properties</summary>
+    public Dictionary<string, string> ExtraProperties { get; set; } = [];
+
+    /// <summary>Whether stats were successfully resolved</summary>
+    public bool IsResolved { get; set; }
+
+    /// <summary>Summary string for display</summary>
+    public string Summary
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (MinDamage > 0 || MaxDamage > 0)
+                parts.Add($"Damage: {MinDamage}-{MaxDamage}" + (DamageType != null ? $" ({DamageType})" : ""));
+            if (ArmorValue > 0)
+                parts.Add($"Armor: {ArmorValue}");
+            if (MagicArmorValue > 0)
+                parts.Add($"Magic Armor: {MagicArmorValue}");
+            if (Weight > 0)
+                parts.Add($"Weight: {Weight / 1000f:F2} kg");
+            if (GoldValue > 0)
+                parts.Add($"Value: {GoldValue} gp");
+            if (RequiredLevel > 0)
+                parts.Add($"Req. Level: {RequiredLevel}");
+            if (MaxHP > 0)
+                parts.Add($"Durability: {MaxHP}");
+            if (WeaponRange > 0)
+                parts.Add($"Range: {WeaponRange:F1}m");
+            if (CriticalChance > 0)
+                parts.Add($"Crit: {CriticalChance}%");
+            return string.Join(" | ", parts);
+        }
+    }
 }

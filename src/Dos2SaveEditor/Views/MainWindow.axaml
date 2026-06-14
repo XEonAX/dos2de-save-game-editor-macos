@@ -28,6 +28,10 @@
                     IsEnabled="{Binding IsSaveOpen}"
                     Width="80" Height="32"/>
             <Separator Width="16" Background="Transparent"/>
+            <Button Content="Set Game Data..." Command="{Binding SetGameDataPathCommand}"
+                    IsEnabled="{Binding IsSaveOpen}"
+                    Width="120" Height="32" FontSize="12"/>
+            <Separator Width="16" Background="Transparent"/>
             <TextBlock Text="{Binding StatusText}" 
                        VerticalAlignment="Center"
                        FontSize="13"
@@ -78,9 +82,8 @@
                 </TabItem>
 
                 <TabItem Header="Inventory">
-                    <DockPanel Margin="8">
-                        <TextBlock DockPanel.Dock="Top" Text="Inventory" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                        <TreeView ItemsSource="{Binding InventoryItems}"
+                    <Grid ColumnDefinitions="*,360" Margin="8">
+                        <TreeView Grid.Column="0" ItemsSource="{Binding InventoryItems}"
                                   SelectedItem="{Binding SelectedInventoryItem}">
                             <TreeView.ItemTemplate>
                                 <TreeDataTemplate ItemsSource="{Binding Children}">
@@ -99,56 +102,132 @@
                                 </TreeDataTemplate>
                             </TreeView.ItemTemplate>
                         </TreeView>
-                        <!-- Item detail editor (shown when item selected) -->
-                        <ContentControl DockPanel.Dock="Bottom" Margin="0,8,0,0"
-                                        Content="{Binding ItemEditor}">
-                            <ContentControl.DataTemplates>
-                                <DataTemplate DataType="vm:ItemEditViewModel">
-                                    <Border Padding="10"
-                                            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-                                            CornerRadius="6">
-                                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
-                                            <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="Item Details" 
-                                                       FontWeight="Bold" FontSize="14" Margin="0,0,0,4"/>
-                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Stats ID" FontSize="11"/>
-                                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StatsId}" FontSize="12"/>
-                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Amount" FontSize="11"/>
-                                            <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding Amount}" 
-                                                           Minimum="1" Maximum="999999" Width="100"/>
-                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Level" FontSize="11"/>
-                                            <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding Level}" 
-                                                           Minimum="0" Maximum="99" Width="100"/>
-                                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Slot" FontSize="11"/>
-                                            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Slot}" FontSize="12"/>
-                                            <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Spacing="12">
-                                                <CheckBox IsChecked="{Binding IsGenerated}" Content="Generated"/>
-                                                <CheckBox IsChecked="{Binding HasCustomBase}" Content="Custom Base"/>
+                        <!-- Item detail editor on the right — scrollable -->
+                        <ScrollViewer Grid.Column="1" Margin="8,0,0,0"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                            <ContentControl Content="{Binding ItemEditor}">
+                                <ContentControl.DataTemplates>
+                                    <DataTemplate DataType="vm:ItemEditViewModel">
+                                        <Border Padding="10"
+                                                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                                CornerRadius="6">
+                                            <StackPanel Spacing="4">
+                                                <TextBlock Text="Item Details" 
+                                                           FontWeight="Bold" FontSize="14" Margin="0,0,0,4"/>
+                                                <!-- Basic properties -->
+                                                <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Stats ID" FontSize="11" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StatsId}" FontSize="12"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Amount" FontSize="11" VerticalAlignment="Center"/>
+                                                    <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding Amount}" 
+                                                                   Minimum="1" Maximum="999999" Width="100"/>
+                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Level" FontSize="11" VerticalAlignment="Center"/>
+                                                    <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding Level}" 
+                                                                   Minimum="0" Maximum="99" Width="100"/>
+                                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Slot" FontSize="11" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Slot}" FontSize="12"/>
+                                                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="12">
+                                                        <CheckBox IsChecked="{Binding IsGenerated}" Content="Generated"
+                                                                  ToolTip.Tip="Item was created by the loot generation system. Stats are computed from a template + level + random boosts."/>
+                                                        <CheckBox IsChecked="{Binding HasCustomBase}" Content="Custom Base"
+                                                                  ToolTip.Tip="Item has custom base stats overridden in the save file, diverging from the template."/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,2">
+                                                        <TextBlock Text="{Binding KindLabel}" FontSize="11" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding BackpackLabel, StringFormat='Backpack: {0}'}" 
+                                                                   FontSize="11" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!-- Separator -->
+                                                <Border Height="1" Background="{DynamicResource SystemControlForegroundBaseLowBrush}" Margin="0,4"/>
+
+                                                <!-- Resolved Stats -->
+                                                <TextBlock Text="Stats" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,2"/>
+                                                <TextBlock Text="{Binding ResolvedStatsSummary}" 
+                                                           FontSize="11" TextWrapping="Wrap"
+                                                           Foreground="{DynamicResource SystemControlAccentBrush}"
+                                                           IsVisible="{Binding HasResolvedStats}"/>
+                                                <TextBlock Text="Use 'Set Game Data...' to load item stats from the game files." 
+                                                           FontSize="10" FontStyle="Italic"
+                                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                                           IsVisible="{Binding !HasResolvedStats}"/>
+
+                                                <!-- Override values from save (editable) -->
+                                                <TextBlock Text="Overrides (editable)" FontSize="11" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                                <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Gold Value" FontSize="10" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GoldValueOverride}" FontSize="10" Width="80"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Weight" FontSize="10" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding WeightValueOverride}" FontSize="10" Width="80"/>
+                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Damage Type" FontSize="10" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DamageTypeOverride}" FontSize="10" Width="120"/>
+                                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Durability" FontSize="10" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding HpOverride}" FontSize="10" Width="80"/>
+                                                </Grid>
+
+                                                <!-- Extra properties from game data -->
+                                                <TextBlock Text="{Binding ExtraStatsText}" 
+                                                           FontSize="10" TextWrapping="Wrap"
+                                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                                           IsVisible="{Binding HasResolvedStats}"/>
+
+                                                <!-- Separator -->
+                                                <Border Height="1" Background="{DynamicResource SystemControlForegroundBaseLowBrush}" Margin="0,4"/>
+
+                                                <!-- Runes -->
+                                                <TextBlock Text="Runes" FontSize="11" FontWeight="SemiBold"/>
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <TextBox Text="{Binding Rune1}" Width="100" FontSize="11"/>
+                                                    <TextBox Text="{Binding Rune2}" Width="100" FontSize="11"/>
+                                                    <TextBox Text="{Binding Rune3}" Width="100" FontSize="11"/>
+                                                </StackPanel>
+
+                                                <!-- Boosters -->
+                                                <TextBlock Text="Boosters" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBox Text="{Binding BoostersText}" FontSize="11"/>
+
+                                                <!-- Delta Mods (editable, one per line) -->
+                                                <TextBlock Text="DeltaMods (one per line)" FontSize="11" FontWeight="SemiBold"/>
+                                                <TextBox Text="{Binding DeltaModsText}" FontSize="10"
+                                                         AcceptsReturn="True" MinHeight="40"
+                                                         TextWrapping="Wrap"/>
+
+                                                <!-- Generation overrides -->
+                                                <TextBlock Text="Generation" FontSize="11" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                                <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto">
+                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Gen StatsId" FontSize="10" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GenerationStatsId}" FontSize="10"/>
+                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Gen Base" FontSize="10" VerticalAlignment="Center"/>
+                                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding GenerationBase}" FontSize="10"/>
+                                                </Grid>
+
+                                                <!-- Apply -->
+                                                <Button Content="Apply Changes"
+                                                        Command="{Binding ApplyCommand}"
+                                                        HorizontalAlignment="Right" Width="120" Height="30"
+                                                        Margin="0,6,0,0"/>
+
+                                                <!-- Diagnostic log (collapsed by default) -->
+                                                <Expander Header="Load Log" FontSize="10" 
+                                                          IsExpanded="False"
+                                                          IsVisible="{Binding HasLoadLog}"
+                                                          Margin="0,4,0,0">
+                                                    <TextBlock Text="{Binding LoadLogText}" 
+                                                               FontSize="9" FontFamily="Menlo,monospace"
+                                                               TextWrapping="Wrap"
+                                                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                                               MaxHeight="200"/>
+                                                </Expander>
                                             </StackPanel>
-                                            <TextBlock Grid.Row="6" Grid.Column="0" Text="Runes" FontSize="11"/>
-                                            <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Spacing="4">
-                                                <TextBox Text="{Binding Rune1}" Width="100" FontSize="11"/>
-                                                <TextBox Text="{Binding Rune2}" Width="100" FontSize="11"/>
-                                                <TextBox Text="{Binding Rune3}" Width="100" FontSize="11"/>
-                                            </StackPanel>
-                                            <TextBlock Grid.Row="7" Grid.Column="0" Text="Boosters" FontSize="11"/>
-                                            <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding BoostersText}" 
-                                                     FontSize="11"/>
-                                            <StackPanel Grid.Row="8" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-                                                <TextBlock Text="{Binding KindLabel}" FontSize="11" VerticalAlignment="Center"/>
-                                                <TextBlock Text="{Binding BackpackLabel, StringFormat='Backpack: {0}'}" 
-                                                           FontSize="11" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
-                                            </StackPanel>
-                                            <Button Grid.Row="9" Grid.Column="1" Content="Apply Changes"
-                                                    Command="{Binding ApplyCommand}"
-                                                    HorizontalAlignment="Right" Width="120" Height="30"
-                                                    Margin="0,4,0,0"/>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ContentControl.DataTemplates>
-                        </ContentControl>
-                    </DockPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ContentControl.DataTemplates>
+                            </ContentControl>
+                        </ScrollViewer>
+                    </Grid>
                 </TabItem>
 
                 <TabItem Header="Mods">

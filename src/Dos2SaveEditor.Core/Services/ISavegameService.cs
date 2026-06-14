@@ -33,4 +33,13 @@ public interface ISavegameService
 
     /// <summary>Dispose the save (releases file handles).</summary>
     void Close(SavegameInfo save);
+
+    /// <summary>Get the stat lookup service for resolving item stats.</summary>
+    StatLookupService Stats { get; }
+
+    /// <summary>Try to load game stat definitions from the given directory.</summary>
+    bool TryLoadStats(string? dataPath);
+
+    /// <summary>Get the last stat-load diagnostic log.</summary>
+    IReadOnlyList<string> GetStatLoadLog();
 }

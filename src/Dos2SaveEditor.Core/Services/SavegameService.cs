@@ -10,6 +10,26 @@ namespace Dos2SaveEditor.Core.Services;
 /// </summary>
 public class SavegameService : ISavegameService
 {
+    /// <inheritdoc/>
+    public StatLookupService Stats { get; } = new();
+
+    /// <inheritdoc/>
+    public bool TryLoadStats(string? dataPath)
+    {
+        System.Diagnostics.Debug.WriteLine($"SavegameService: TryLoadStats called with '{dataPath}'");
+        if (string.IsNullOrEmpty(dataPath) || !Directory.Exists(dataPath))
+        {
+            System.Diagnostics.Debug.WriteLine($"SavegameService: path null or doesn't exist, skipping");
+            return false;
+        }
+        Stats.LoadFromDirectory(dataPath);
+        System.Diagnostics.Debug.WriteLine($"SavegameService: Stats.IsLoaded={Stats.IsLoaded}, EntryCount={Stats.EntryCount}");
+        return Stats.IsLoaded;
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<string> GetStatLoadLog() => Stats.LoadLog;
+
     // ── Open ─────────────────────────────────────────────────────
 
     public async Task<SavegameInfo> OpenSaveAsync(string filePath)
@@ -247,6 +267,12 @@ public class SavegameService : ISavegameService
         ReadAttrString(itemNode, "Inventory", v => item.InventoryUuid = v);
         ReadAttrBool(itemNode, "IsGenerated", v => item.IsGenerated = v);
 
+        // ── Stat overrides on item node ──
+        ReadAttrInt(itemNode, "GoldValueOverwrite", v => item.GoldValueOverwrite = v);
+        ReadAttrInt(itemNode, "WeightValueOverwrite", v => item.WeightValueOverwrite = v);
+        ReadAttrString(itemNode, "DamageTypeOverwrite", v => item.DamageTypeOverwrite = v);
+        ReadAttrInt(itemNode, "HP", v => item.HP = v);
+
         // Detect backpack (non-null, non-empty Inventory attribute)
         if (!string.IsNullOrEmpty(item.InventoryUuid) && item.InventoryUuid != "00000000-0000-0000-0000-000000000000")
             item.IsBackpack = true;
@@ -266,6 +292,8 @@ public class SavegameService : ISavegameService
             ReadAttrInt(statsNode, "LevelGroupIndex", v => item.LevelGroupIndex = v);
             ReadAttrInt(statsNode, "NameIndex", v => item.NameIndex = v);
             ReadAttrBool(statsNode, "CustomBaseStats", v => item.HasCustomBase = v);
+            ReadAttrString(statsNode, "StatsEntryName", v => item.StatsEntryName = v);
+            ReadAttrString(statsNode, "GenerationStatsId", v => item.GenerationStatsId = v);
 
             // Rune slots
             int runeIdx = 0;
@@ -276,6 +304,28 @@ public class SavegameService : ISavegameService
                     if (runeIdx >= 3) break;
                     if (child.Attributes.TryGetValue("RuneStatsID", out var runeAttr))
                         item.Runes[runeIdx++] = runeAttr.Value?.ToString();
+                }
+            }
+
+            // DeltaMods
+            if (statsNode.Children.TryGetValue("DeltaMods", out var dmList))
+            {
+                foreach (var dmNode in dmList)
+                {
+                    if (dmNode.Attributes.TryGetValue("DeltaMod", out var dmAttr) && dmAttr.Value is string dmStr)
+                        item.DeltaMods.Add(dmStr);
+                    else if (dmNode.Attributes.TryGetValue("Object", out var objAttr) && objAttr.Value is string objStr)
+                        item.DeltaMods.Add(objStr);
+                }
+            }
+
+            // RuneBoosts
+            if (statsNode.Children.TryGetValue("RuneBoostSet", out var rbList))
+            {
+                foreach (var rbNode in rbList)
+                {
+                    if (rbNode.Attributes.TryGetValue("Object", out var objAttr) && objAttr.Value is string objStr)
+                        item.RuneBoosts.Add(objStr);
                 }
             }
         }
@@ -425,12 +475,20 @@ public class SavegameService : ISavegameService
         WriteAttrString(node, "Slot", item.Slot ?? "");
         WriteAttrBool(node, "IsGenerated", item.IsGenerated);
 
+        // Write stat overrides on item node
+        WriteAttrInt(node, "GoldValueOverwrite", item.GoldValueOverwrite);
+        WriteAttrInt(node, "WeightValueOverwrite", item.WeightValueOverwrite);
+        WriteAttrString(node, "DamageTypeOverwrite", item.DamageTypeOverwrite ?? "");
+        WriteAttrInt(node, "HP", item.HP);
+
         // Write to Stats sub-node
         if (item._statsNode != null)
         {
             var sn = item._statsNode;
             WriteAttrInt(sn, "Level", item.Level);
             WriteAttrBool(sn, "CustomBaseStats", item.HasCustomBase);
+            WriteAttrString(sn, "GenerationStatsId", item.GenerationStatsId ?? "");
+            WriteAttrString(sn, "StatsEntryName", item.StatsEntryName ?? "");
 
             // Runes — update existing RuneSlot children
             int runeIdx = 0;
@@ -442,6 +500,20 @@ public class SavegameService : ISavegameService
                             WriteAttrString(child, "RuneStatsID", item.Runes[runeIdx]!);
                         runeIdx++;
                     }
+
+            // DeltaMods — update/replace children
+            sn.Children.Remove("DeltaMods");
+            if (item.DeltaMods.Count > 0)
+            {
+                var dmList = new List<Node>();
+                foreach (var dm in item.DeltaMods)
+                {
+                    var dmNode = new Node { Name = "DeltaMod" };
+                    dmNode.Attributes["DeltaMod"] = new NodeAttribute(AttributeType.FixedString) { Value = dm };
+                    dmList.Add(dmNode);
+                }
+                sn.Children["DeltaMods"] = dmList;
+            }
         }
 
         // Custom name/description
@@ -467,30 +539,52 @@ public class SavegameService : ISavegameService
 
             var conversionParams = ResourceConversionParameters.FromGameVersion(save.Game);
 
-            // Create backup
+            // Detect original compression from existing files.
+            // DOS2DE saves use solid LZ4 compression.
+            // In solid packages, individual file flags may not reflect the real compression.
+            var compressionMethod = CompressionMethod.LZ4;
+            var solid = package.Metadata.Flags.HasFlag(PackageFlags.Solid);
+
+            // If not solid, use the first file's compression method
+            if (!solid && package.Files.Count > 0)
+            {
+                var method = package.Files[0].Flags.Method();
+                if (method != CompressionMethod.None)
+                    compressionMethod = method;
+            }
+
+            var flags = solid ? PackageFlags.Solid : 0;
+
+            // Create backup of original file before writing
+            long originalSize = 0;
             if (File.Exists(outputPath))
             {
+                originalSize = new FileInfo(outputPath).Length;
                 var bakPath = outputPath + ".bak";
                 File.Copy(outputPath, bakPath, overwrite: true);
             }
 
-            // Reserialize globals.lsf
+            // Reserialize globals.lsf — preserve the original metadata format
+            var metadataFormat = save.Globals!.MetadataFormat ?? LSFMetadataFormat.None;
+            System.Diagnostics.Debug.WriteLine($"SaveAsync: globals MetadataFormat = {metadataFormat}");
+
             using var globalsStream = new MemoryStream();
             var lsfWriter = new LSFWriter(globalsStream)
             {
                 Version = conversionParams.LSF,
-                MetadataFormat = LSFMetadataFormat.None
+                MetadataFormat = metadataFormat
             };
             lsfWriter.Write(save.Globals!);
             globalsStream.Seek(0, SeekOrigin.Begin);
             var globalsBytes = globalsStream.ToArray();
 
-            // Build package
+            // Build package preserving original compression settings
             var build = new PackageBuildData
             {
                 Version = conversionParams.PAKVersion,
-                Compression = CompressionMethod.Zlib,
-                CompressionLevel = LSCompressionLevel.Default
+                Compression = compressionMethod,
+                CompressionLevel = LSCompressionLevel.Default,
+                Flags = flags
             };
 
             build.Files.Add(PackageBuildInputFile.CreateFromBlob(globalsBytes, "globals.lsf"));
@@ -509,15 +603,31 @@ public class SavegameService : ISavegameService
             package.Dispose();
             save.Package = null;
 
-            // Write the package (scoped so writer is disposed before re-open)
+            // Write the package
             {
                 using var writer = PackageWriterFactory.Create(build, outputPath);
                 writer.Write();
             }
 
+            var newSize = new FileInfo(outputPath).Length;
+            System.Diagnostics.Debug.WriteLine(
+                $"SaveAsync: original={originalSize} bytes, new={newSize} bytes, " +
+                $"delta={newSize - originalSize:+0;-#} bytes, " +
+                $"compression={compressionMethod}, solid={solid}");
+
             // Re-open the newly written package so the user can continue editing
             var reader = new PackageReader();
             save.Package = reader.Read(outputPath);
+
+            // Re-read globals from the new package
+            var globalsInfo = save.Package.Files.FirstOrDefault(
+                f => f.Name.Equals("globals.lsf", StringComparison.OrdinalIgnoreCase));
+            if (globalsInfo != null)
+            {
+                using var rsrcStream = globalsInfo.CreateContentReader();
+                using var rsrcReader = new LSFReader(rsrcStream);
+                save.Globals = rsrcReader.Read();
+            }
         });
     }
 

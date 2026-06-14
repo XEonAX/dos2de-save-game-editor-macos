@@ -1,3 +1,4 @@
 [submodule "lib/lslib"]
 	path = lib/lslib
-	url = https://github.com/Norbyte/lslib.git
+	url = https://github.com/XEonAX/lslib.git
+	branch = anx/mac
