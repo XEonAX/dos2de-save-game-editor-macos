@@ -1,0 +1,195 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Dos2SaveEditor.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:Class="Dos2SaveEditor.Views.CharacterEditView"
+             x:DataType="vm:CharacterEditViewModel"
+             x:CompileBindings="True">
+
+  <Grid RowDefinitions="Auto,Auto,Auto,*,Auto"
+        ColumnDefinitions="*,*">
+
+    <!-- Section: Vital Stats -->
+    <Border Grid.Row="0" Grid.ColumnSpan="2" Padding="12"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+            CornerRadius="6">
+      <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto">
+        <TextBlock Grid.Row="0" Grid.ColumnSpan="3"
+                   Text="Vital Stats" FontWeight="Bold" FontSize="15"
+                   Margin="0,0,0,6"/>
+        <StackPanel Grid.Row="1" Grid.Column="0">
+          <TextBlock Text="Vitality" FontSize="12"/>
+          <DockPanel>
+            <NumericUpDown Value="{Binding Vitality}"
+                           Minimum="0" Maximum="999999" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+            <TextBlock Text=" / " VerticalAlignment="Center"/>
+            <NumericUpDown Value="{Binding VitalityMax}"
+                           Minimum="0" Maximum="999999" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+          </DockPanel>
+        </StackPanel>
+        <StackPanel Grid.Row="1" Grid.Column="1">
+          <TextBlock Text="Physical Armor" FontSize="12"/>
+          <DockPanel>
+            <NumericUpDown Value="{Binding Armor}"
+                           Minimum="0" Maximum="999999" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+            <TextBlock Text=" / " VerticalAlignment="Center"/>
+            <NumericUpDown Value="{Binding ArmorMax}"
+                           Minimum="0" Maximum="999999" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+          </DockPanel>
+        </StackPanel>
+        <StackPanel Grid.Row="1" Grid.Column="2">
+          <TextBlock Text="Magic Armor" FontSize="12"/>
+          <DockPanel>
+            <NumericUpDown Value="{Binding MagicArmor}"
+                           Minimum="0" Maximum="999999" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+            <TextBlock Text=" / " VerticalAlignment="Center"/>
+            <NumericUpDown Value="{Binding MagicArmorMax}"
+                           Minimum="0" Maximum="999999" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+          </DockPanel>
+        </StackPanel>
+        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Spacing="8">
+          <StackPanel>
+            <TextBlock Text="Level" FontSize="12"/>
+            <TextBlock Text="{Binding Level}" FontWeight="Bold" FontSize="16"/>
+          </StackPanel>
+          <StackPanel>
+            <TextBlock Text="Experience" FontSize="12"/>
+            <NumericUpDown Value="{Binding Experience}"
+                           Minimum="0" Maximum="999999999" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+          </StackPanel>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Section: Attributes -->
+    <Border Grid.Row="1" Grid.Column="0" Padding="12"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+            CornerRadius="6">
+      <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+        <TextBlock Grid.Row="0" Text="Attributes" FontWeight="Bold" FontSize="15"
+                   Margin="0,0,0,6"/>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="STR" VerticalAlignment="Center"/>
+          <NumericUpDown Value="{Binding Strength}"
+                         Minimum="1" Maximum="40" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+        </StackPanel>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="DEX" VerticalAlignment="Center"/>
+          <NumericUpDown Value="{Binding Dexterity}"
+                         Minimum="1" Maximum="40" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+        </StackPanel>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="INT" VerticalAlignment="Center"/>
+          <NumericUpDown Value="{Binding Intelligence}"
+                         Minimum="1" Maximum="40" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+        </StackPanel>
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="CON" VerticalAlignment="Center"/>
+          <NumericUpDown Value="{Binding Constitution}"
+                         Minimum="1" Maximum="40" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+        </StackPanel>
+        <StackPanel Grid.Row="5" Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="MEM" VerticalAlignment="Center"/>
+          <NumericUpDown Value="{Binding Memory}"
+                         Minimum="1" Maximum="40" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+        </StackPanel>
+        <StackPanel Grid.Row="6" Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="WIT" VerticalAlignment="Center"/>
+          <NumericUpDown Value="{Binding Wits}"
+                         Minimum="1" Maximum="40" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Section: Combat Abilities -->
+    <Border Grid.Row="1" Grid.Column="1" Padding="12"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+            CornerRadius="6">
+      <ScrollViewer>
+        <StackPanel Spacing="3">
+          <TextBlock Text="Combat Abilities" FontWeight="Bold" FontSize="15"
+                     Margin="0,0,0,6"/>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Warfare" VerticalAlignment="Center"/>
+            <NumericUpDown Value="{Binding Warfare}" Minimum="0" Maximum="99" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Aerotheurge" VerticalAlignment="Center"/>
+            <NumericUpDown Value="{Binding Aerotheurge}" Minimum="0" Maximum="99" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Huntsman" VerticalAlignment="Center"/>
+            <NumericUpDown Value="{Binding Huntsman}" Minimum="0" Maximum="99" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Scoundrel" VerticalAlignment="Center"/>
+            <NumericUpDown Value="{Binding Scoundrel}" Minimum="0" Maximum="99" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Geomancer" VerticalAlignment="Center"/>
+            <NumericUpDown Value="{Binding Geomancer}" Minimum="0" Maximum="99" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Hydrosophist" VerticalAlignment="Center"/>
+            <NumericUpDown Value="{Binding Hydrosophist}" Minimum="0" Maximum="99" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Summoning" VerticalAlignment="Center"/>
+            <NumericUpDown Value="{Binding Summoning}" Minimum="0" Maximum="99" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Polymorph" VerticalAlignment="Center"/>
+            <NumericUpDown Value="{Binding Polymorph}" Minimum="0" Maximum="99" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Necromancy" VerticalAlignment="Center"/>
+            <NumericUpDown Value="{Binding Necromancy}" Minimum="0" Maximum="99" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Pyrokinetic" VerticalAlignment="Center"/>
+            <NumericUpDown Value="{Binding Pyrokinetic}" Minimum="0" Maximum="99" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- Section: Available Points -->
+    <Border Grid.Row="2" Grid.ColumnSpan="2" Padding="12"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+            CornerRadius="6">
+      <StackPanel Orientation="Horizontal" Spacing="16">
+        <TextBlock Text="Points:" FontWeight="Bold" FontSize="15"
+                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+        <StackPanel>
+          <TextBlock Text="Attribute" FontSize="11"/>
+          <NumericUpDown Value="{Binding AttributePoints}"
+                         Minimum="0" Maximum="99" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+        </StackPanel>
+        <StackPanel>
+          <TextBlock Text="Combat" FontSize="11"/>
+          <NumericUpDown Value="{Binding CombatAbilityPoints}"
+                         Minimum="0" Maximum="99" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+        </StackPanel>
+        <StackPanel>
+          <TextBlock Text="Civil" FontSize="11"/>
+          <NumericUpDown Value="{Binding CivilAbilityPoints}"
+                         Minimum="0" Maximum="99" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+        </StackPanel>
+        <StackPanel>
+          <TextBlock Text="Talent" FontSize="11"/>
+          <NumericUpDown Value="{Binding TalentPoints}"
+                         Minimum="0" Maximum="99" FormatString="N0" ParsingNumberStyle="Integer" Increment="1"/>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <!-- Apply button -->
+    <Button Grid.Row="3" Grid.ColumnSpan="2"
+            Content="Apply Changes" Command="{Binding ApplyCommand}"
+            HorizontalAlignment="Right" Height="36"
+            Margin="0,8,0,0"/>
+  </Grid>
+
+</UserControl>

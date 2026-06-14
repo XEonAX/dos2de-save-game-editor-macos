@@ -1,2 +1,5 @@
 <Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/Dos2SaveEditor.Tests/Dos2SaveEditor.Tests.csproj" />
+  </Folder>
 </Solution>

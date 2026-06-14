@@ -83,28 +83,27 @@ public static class GameConstants
     public static readonly string[] AttributeNames =
         ["Strength", "Dexterity", "Intelligence", "Constitution", "Memory", "Wits"];
 
-    // ── Combat ability names (in save order) ──────────────────
+    // ── Combat ability names (in save order, 18 entries) ─────────
     public static readonly string[] CombatAbilityNames =
     [
-        "DualWielding",
-        "TwoHanded",
-        "Ranged",
-        "SingleHanded",
-        "Shield",
-        "PainReflection",
-        "Leadership",
-        "Perseverance",
-        // Index 8 = placeholder
-        "Warfare",
-        "Aerotheurge",
-        "Huntsman",
-        "Scoundrel",
-        "Geomancer",
-        "Hydrosophist",
-        "Summoning",
-        "Polymorph",
-        "Necromancy",
-        "Pyrokinetic"
+        "DualWielding",     // [0]
+        "TwoHanded",        // [1]
+        "Ranged",           // [2]
+        "SingleHanded",     // [3]
+        "Shield",           // [4]
+        "PainReflection",   // [5]
+        "Leadership",       // [6]
+        "Perseverance",     // [7]
+        "Warfare",          // [8]
+        "Aerotheurge",      // [9]
+        "Huntsman",         // [10]
+        "Scoundrel",        // [11]
+        "Geomancer",        // [12]
+        "Hydrosophist",     // [13]
+        "Summoning",        // [14]
+        "Polymorph",        // [15]
+        "Necromancy",       // [16]
+        "Pyrokinetic"       // [17]
     ];
 
     // ── Civil ability names (in save order) ───────────────────

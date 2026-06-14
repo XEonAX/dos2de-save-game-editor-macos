@@ -1,0 +1,34 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Dos2SaveEditor (debug)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/src/Dos2SaveEditor/bin/Debug/net9.0/Dos2SaveEditor.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "env": {
+                "DOTNET_ENVIRONMENT": "Development",
+                "DOS2_SAVE_PATH": "/Users/user/Documents/Larian Studios/Divinity Original Sin 2 Definitive Edition/PlayerProfiles/Kylino Gemina/Savegames/Story/EditSave/EditSave.lsv"
+            }
+        },
+        {
+            "name": "Launch Dos2SaveEditor (no save)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/src/Dos2SaveEditor/bin/Debug/net9.0/Dos2SaveEditor.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "env": {
+                "DOTNET_ENVIRONMENT": "Development"
+            }
+        }
+    ]
+}

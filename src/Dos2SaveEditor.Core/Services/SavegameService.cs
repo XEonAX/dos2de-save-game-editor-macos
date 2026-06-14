@@ -54,10 +54,17 @@ public class SavegameService : ISavegameService
 
     private static List<Node> GetCharacterNodes(SavegameInfo save)
     {
-        return save.Globals!.Regions["Characters"]
-            .Children["CharacterFactory"][0]
-            .Children["Characters"][0]
-            .Children["Character"];
+        if (save.Globals == null)
+            return [];
+        if (!save.Globals.Regions.TryGetValue("Characters", out var charsRegion))
+            return [];
+        if (!charsRegion.Children.TryGetValue("CharacterFactory", out var cfList) || cfList.Count == 0)
+            return [];
+        if (!cfList[0].Children.TryGetValue("Characters", out var charsList) || charsList.Count == 0)
+            return [];
+        if (!charsList[0].Children.TryGetValue("Character", out var characterList))
+            return [];
+        return characterList;
     }
 
     public List<Character> GetCharacters(SavegameInfo save)
@@ -70,21 +77,42 @@ public class SavegameService : ISavegameService
             var charNode = charNodes[i];
             var c = new Character { NodeIndex = i };
 
-            // ── Stats attributes (direct children of character node) ──
-            ReadStatInt(charNode, "Armor", v => c.Armor = v);
-            ReadStatInt(charNode, "MaxArmorPatchCheck", v => c.ArmorMax = v);
-            ReadStatInt(charNode, "MagicArmor", v => c.MagicArmor = v);
-            ReadStatInt(charNode, "MaxMagicArmorPatchCheck", v => c.MagicArmorMax = v);
-            ReadStatInt(charNode, "Vitality", v => c.Vitality = v);
-            ReadStatInt(charNode, "MaxVitalityPatchCheck", v => c.VitalityMax = v);
-            ReadStatInt(charNode, "DamageCounter", v => c.DamageCount = v);
-            ReadStatInt(charNode, "HealCounter", v => c.HealCount = v);
-            ReadStatInt(charNode, "KillCounter", v => c.KillCount = v);
-            ReadStatString(charNode, "Level", v => c.Map = v);
-            ReadStatUInt(charNode, "Experience", v => c.Experience = v);
-            ReadStatString(charNode, "Inventory", v => c.InventoryUuid = v);
+            // ── IsPlayer filter: only process player characters ──
+            if (!charNode.Children.TryGetValue("Stats", out var statsList) || statsList.Count == 0)
+                continue;
+            var statsNode = statsList[0];
+            bool isPlayer = false;
+            if (statsNode.Attributes.TryGetValue("IsPlayer", out var isPlayerAttr))
+            {
+                var val = isPlayerAttr.Value;
+                if (val is bool b) isPlayer = b;
+                else if (val is string s) isPlayer = s.Equals("True", StringComparison.OrdinalIgnoreCase) || s == "1";
+                else isPlayer = Convert.ToBoolean(val);
+            }
+            if (!isPlayer)
+                continue;
 
-            // ── CustomData (Name, Race, Class, Origin) ──
+            // ── Stats attributes (from character node directly, NOT Stats child!) ──
+            ReadAttrString(charNode, "Level", v => c.Map = v);
+            ReadAttrInt(charNode, "Vitality", v => c.Vitality = v);
+            ReadAttrInt(charNode, "MaxVitalityPatchCheck", v => c.VitalityMax = v);
+            ReadAttrInt(charNode, "Armor", v => c.Armor = v);
+            ReadAttrInt(charNode, "MaxArmorPatchCheck", v => c.ArmorMax = v);
+            ReadAttrInt(charNode, "MagicArmor", v => c.MagicArmor = v);
+            ReadAttrInt(charNode, "MaxMagicArmorPatchCheck", v => c.MagicArmorMax = v);
+            ReadAttrInt(charNode, "DamageCounter", v => c.DamageCount = v);
+            ReadAttrInt(charNode, "HealCounter", v => c.HealCount = v);
+            ReadAttrInt(charNode, "KillCounter", v => c.KillCount = v);
+            ReadAttrULongLong(charNode, "Inventory", v => c.InventoryUuid = v.ToString());
+
+            // Experience is in Stats child node (not on character directly)
+            ReadAttrInt(statsNode, "Experience", v => c.Experience = (uint)v);
+
+            // Name fallback: OriginalTransformDisplayName on character node
+            if (string.IsNullOrEmpty(c.Name))
+                ReadAttrTranslatedString(charNode, "OriginalTransformDisplayName", v => c.Name = v);
+
+            // ── PlayerData → PlayerCustomData (Name, Race, Class, Origin) ──
             if (charNode.Children.TryGetValue("PlayerData", out var pdList) && pdList.Count > 0)
             {
                 var playerData = pdList[0];
@@ -98,45 +126,58 @@ public class SavegameService : ISavegameService
                 }
             }
 
-            // ── PlayerUpgrade (available points) ──
-            if (charNode.Children.TryGetValue("PlayerData", out pdList) && pdList.Count > 0)
+            // ── PlayerUpgrade is a DIRECT child of character (not under PlayerData!) ──
+            if (charNode.Children.TryGetValue("PlayerUpgrade", out var puList) && puList.Count > 0)
             {
-                var playerData = pdList[0];
-                if (playerData.Children.TryGetValue("PlayerUpgrade", out var puList) && puList.Count > 0)
-                {
-                    var upgrade = puList[0];
-                    ReadAttrInt(upgrade, "AttributePoints", v => c.AttributePoints = v);
-                    ReadAttrInt(upgrade, "CombatAbilityPoints", v => c.CombatAbilityPoints = v);
-                    ReadAttrInt(upgrade, "CivilAbilityPoints", v => c.CivilAbilityPoints = v);
-                    ReadAttrInt(upgrade, "TalentPoints", v => c.TalentPoints = v);
-                }
-            }
+                var upgrade = puList[0];
+                ReadAttrInt(upgrade, "AttributePoints", v => c.AttributePoints = v);
+                ReadAttrInt(upgrade, "CombatAbilityPoints", v => c.CombatAbilityPoints = v);
+                ReadAttrInt(upgrade, "CivilAbilityPoints", v => c.CivilAbilityPoints = v);
+                ReadAttrInt(upgrade, "TalentPoints", v => c.TalentPoints = v);
 
-            // ── Spent points (attributes, abilities, talents) ──
-            // These are in a sequential node list under PlayerUpgrade's children
-            if (charNode.Children.TryGetValue("PlayerData", out pdList) && pdList.Count > 0)
-            {
-                var playerData = pdList[0];
-                if (playerData.Children.TryGetValue("PlayerUpgrade", out var puList) && puList.Count > 0)
+                // ── Spent points: iterate children of PlayerUpgrade ──
+                // Structure: 6 attribute nodes + 40 ability nodes + 4 talent nodes
+                // Each has Attributes["Object"] = value (could be int, string, or TranslatedString)
+                int attrIdx = 0, abilIdx = 0, talIdx = 0;
+                foreach (var childList in upgrade.Children.Values)
                 {
-                    var upgrade = puList[0];
-                    // Iterate through child list to find Object attributes
-                    int attrIdx = 0, abilIdx = 0, talIdx = 0;
-
-                    foreach (var childKey in upgrade.Children.Keys)
+                    foreach (var childNode in childList)
                     {
-                        foreach (var childNode in upgrade.Children[childKey])
+                        if (childNode.Attributes.TryGetValue("Object", out var objAttr))
                         {
-                            if (childNode.Attributes.TryGetValue("Object", out var objAttr))
+                            var rawValue = objAttr.Value;
+                            if (rawValue is int intVal)
                             {
-                                int val = Convert.ToInt32(objAttr.Value);
-
+                                if (attrIdx < 6)
+                                    c.Attributes[attrIdx++] = intVal;
+                                else if (abilIdx < 25)
+                                    c.Abilities[abilIdx++] = intVal;
+                                else if (talIdx < 4)
+                                    c.Talents[talIdx++] = rawValue.ToString();
+                            }
+                            else if (rawValue is uint uintVal)
+                            {
+                                int val = (int)uintVal;
                                 if (attrIdx < 6)
                                     c.Attributes[attrIdx++] = val;
                                 else if (abilIdx < 25)
                                     c.Abilities[abilIdx++] = val;
                                 else if (talIdx < 4)
-                                    c.Talents[talIdx++] = objAttr.Value?.ToString();
+                                    c.Talents[talIdx++] = rawValue.ToString();
+                            }
+                            else if (rawValue is string strVal)
+                            {
+                                // Talent names or other string values
+                                if (talIdx < 4)
+                                    c.Talents[talIdx++] = strVal;
+                                else if (attrIdx < 6)
+                                    c.Attributes[attrIdx++] = int.TryParse(strVal, out var p) ? p : 0;
+                                else if (abilIdx < 25)
+                                    c.Abilities[abilIdx++] = int.TryParse(strVal, out var a) ? a : 0;
+                            }
+                            else
+                            {
+                                // Skip non-primitive values (TranslatedString, etc.)
                             }
                         }
                     }
@@ -147,9 +188,9 @@ public class SavegameService : ISavegameService
             if (charNode.Children.TryGetValue("Tags", out var tagsList) && tagsList.Count > 0)
             {
                 var tagsNode = tagsList[0];
-                foreach (var tagKey in tagsNode.Children.Keys)
+                foreach (var childList in tagsNode.Children.Values)
                 {
-                    foreach (var tagNode in tagsNode.Children[tagKey])
+                    foreach (var tagNode in childList)
                     {
                         if (tagNode.Attributes.TryGetValue("Object", out var tagAttr))
                             c.Tags.Add(tagAttr.Value?.ToString() ?? "");
@@ -335,35 +376,40 @@ public class SavegameService : ISavegameService
 
     public void UpdateCharacter(SavegameInfo save, Character character)
     {
+        if (save.Globals == null)
+            throw new InvalidOperationException("Save globals have been unloaded. Re-open the save file.");
+
         var charNodes = GetCharacterNodes(save);
+        if (charNodes.Count == 0)
+            throw new InvalidOperationException("No character nodes found in save data.");
         if (character.NodeIndex >= charNodes.Count)
             throw new ArgumentOutOfRangeException(nameof(character), "Character index out of range");
 
         var node = charNodes[character.NodeIndex];
 
-        WriteStatInt(node, "Armor", character.Armor);
-        WriteStatInt(node, "MaxArmorPatchCheck", character.ArmorMax);
-        WriteStatInt(node, "MagicArmor", character.MagicArmor);
-        WriteStatInt(node, "MaxMagicArmorPatchCheck", character.MagicArmorMax);
-        WriteStatInt(node, "Vitality", character.Vitality);
-        WriteStatInt(node, "MaxVitalityPatchCheck", character.VitalityMax);
-        WriteStatInt(node, "DamageCounter", character.DamageCount);
-        WriteStatInt(node, "HealCounter", character.HealCount);
-        WriteStatInt(node, "KillCounter", character.KillCount);
-        WriteStatUInt(node, "Experience", character.Experience);
+        // Write to character node directly (VIT/ARM/Inventory)
+        WriteAttrInt(node, "Vitality", character.Vitality);
+        WriteAttrInt(node, "MaxVitalityPatchCheck", character.VitalityMax);
+        WriteAttrInt(node, "Armor", character.Armor);
+        WriteAttrInt(node, "MaxArmorPatchCheck", character.ArmorMax);
+        WriteAttrInt(node, "MagicArmor", character.MagicArmor);
+        WriteAttrInt(node, "MaxMagicArmorPatchCheck", character.MagicArmorMax);
+        WriteAttrInt(node, "DamageCounter", character.DamageCount);
+        WriteAttrInt(node, "HealCounter", character.HealCount);
+        WriteAttrInt(node, "KillCounter", character.KillCount);
 
-        // Update PlayerUpgrade points
-        if (node.Children.TryGetValue("PlayerData", out var pdList) && pdList.Count > 0)
+        // Experience goes to Stats child node
+        if (node.Children.TryGetValue("Stats", out var statsList) && statsList.Count > 0)
+            WriteAttrInt(statsList[0], "Experience", (int)character.Experience);
+
+        // Update PlayerUpgrade points (DIRECT child of character, not under PlayerData!)
+        if (node.Children.TryGetValue("PlayerUpgrade", out var puList) && puList.Count > 0)
         {
-            var playerData = pdList[0];
-            if (playerData.Children.TryGetValue("PlayerUpgrade", out var puList) && puList.Count > 0)
-            {
-                var upgrade = puList[0];
-                WriteAttrInt(upgrade, "AttributePoints", character.AttributePoints);
-                WriteAttrInt(upgrade, "CombatAbilityPoints", character.CombatAbilityPoints);
-                WriteAttrInt(upgrade, "CivilAbilityPoints", character.CivilAbilityPoints);
-                WriteAttrInt(upgrade, "TalentPoints", character.TalentPoints);
-            }
+            var upgrade = puList[0];
+            WriteAttrInt(upgrade, "AttributePoints", character.AttributePoints);
+            WriteAttrInt(upgrade, "CombatAbilityPoints", character.CombatAbilityPoints);
+            WriteAttrInt(upgrade, "CivilAbilityPoints", character.CivilAbilityPoints);
+            WriteAttrInt(upgrade, "TalentPoints", character.TalentPoints);
         }
     }
 
@@ -428,9 +474,19 @@ public class SavegameService : ISavegameService
                 build.Files.Add(PackageBuildInputFile.CreateFromBlob(ms.ToArray(), file.Name));
             }
 
-            // Write the package
-            using var writer = PackageWriterFactory.Create(build, outputPath);
-            writer.Write();
+            // Release file handles before overwriting the package file
+            package.Dispose();
+            save.Package = null;
+
+            // Write the package (scoped so writer is disposed before re-open)
+            {
+                using var writer = PackageWriterFactory.Create(build, outputPath);
+                writer.Write();
+            }
+
+            // Re-open the newly written package so the user can continue editing
+            var reader = new PackageReader();
+            save.Package = reader.Read(outputPath);
         });
     }
 
@@ -471,10 +527,22 @@ public class SavegameService : ISavegameService
         ReadAttrInt(node, attrName, setter);
     }
 
-    private static void ReadStatUInt(Node node, string attrName, Action<uint> setter)
+    private static void ReadAttrUInt(Node node, string attrName, Action<uint> setter)
     {
         if (node.Attributes.TryGetValue(attrName, out var attr) && attr.Value != null)
             setter(Convert.ToUInt32(attr.Value));
+    }
+
+    private static void ReadAttrULongLong(Node node, string attrName, Action<ulong> setter)
+    {
+        if (node.Attributes.TryGetValue(attrName, out var attr) && attr.Value != null)
+            setter(Convert.ToUInt64(attr.Value));
+    }
+
+    private static void ReadAttrTranslatedString(Node node, string attrName, Action<string> setter)
+    {
+        if (node.Attributes.TryGetValue(attrName, out var attr) && attr.Value is LSLib.LS.TranslatedString ts)
+            setter(ts.Value ?? ts.Handle ?? "");
     }
 
     // ── Helpers: Write helpers ────────────────────────────────────
@@ -482,7 +550,7 @@ public class SavegameService : ISavegameService
     private static void WriteAttrInt(Node node, string attrName, int value)
     {
         if (node.Attributes.TryGetValue(attrName, out var attr))
-            attr.Value = value;
+            attr.Value = ConvertForAttributeType(attr.Type, value);
     }
 
     private static void WriteStatInt(Node node, string attrName, int value)
@@ -493,7 +561,52 @@ public class SavegameService : ISavegameService
     private static void WriteStatUInt(Node node, string attrName, uint value)
     {
         if (node.Attributes.TryGetValue(attrName, out var attr))
-            attr.Value = value;
+            attr.Value = ConvertForAttributeType(attr.Type, value);
+    }
+
+    /// <summary>
+    /// Converts a numeric value to the type expected by the attribute type,
+    /// so the LSF serializer can cast it correctly during save.
+    /// </summary>
+    private static object ConvertForAttributeType(AttributeType attrType, object value)
+    {
+        switch (attrType)
+        {
+            // String types: store as string to avoid (string) cast failure
+            case AttributeType.String:
+            case AttributeType.Path:
+            case AttributeType.FixedString:
+            case AttributeType.LSString:
+            case AttributeType.WString:
+            case AttributeType.LSWString:
+                return value.ToString() ?? "";
+
+            // Numeric types: store as the exact type the serializer expects
+            case AttributeType.Byte:
+                return Convert.ToByte(value);
+            case AttributeType.Short:
+                return Convert.ToInt16(value);
+            case AttributeType.UShort:
+                return Convert.ToUInt16(value);
+            case AttributeType.Int:
+                return Convert.ToInt32(value);
+            case AttributeType.UInt:
+                return Convert.ToUInt32(value);
+            case AttributeType.Float:
+                return Convert.ToSingle(value);
+            case AttributeType.Double:
+                return Convert.ToDouble(value);
+            case AttributeType.ULongLong:
+                return Convert.ToUInt64(value);
+            case AttributeType.Int64:
+                return Convert.ToInt64(value);
+            case AttributeType.Bool:
+                return Convert.ToBoolean(value);
+
+            default:
+                // Keep as-is for vector/matrix/UUID/scratchbuffer etc.
+                return value;
+        }
     }
 
     // ── Helpers: Meta loading ─────────────────────────────────────
