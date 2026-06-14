@@ -19,6 +19,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private object? _selectedCharacter;
     [ObservableProperty] private object? _selectedItem;
     [ObservableProperty] private Item? _selectedInventoryItem;
+    [ObservableProperty] private ItemEditViewModel? _itemEditor;
 
     public ObservableCollection<Character> Characters { get; } = [];
     public ObservableCollection<ModEntry> Mods { get; } = [];
@@ -30,7 +31,13 @@ public partial class MainWindowViewModel : ViewModelBase
         ? $"{i.StatsId}\nSlot: {i.Slot ?? "Inventory"}\nAmount: {i.Amount}\nLevel: {i.Level}\nHandle: {i.Handle}"
         : "Select an item to view details.";
 
-    partial void OnSelectedInventoryItemChanged(Item? value) => OnPropertyChanged(nameof(InventoryItemDetail));
+    partial void OnSelectedInventoryItemChanged(Item? value)
+    {
+        OnPropertyChanged(nameof(InventoryItemDetail));
+        ItemEditor = value != null && SaveInfo != null
+            ? new ItemEditViewModel(_saveService, SaveInfo, value)
+            : null;
+    }
 
     /// <summary>Set by the view to enable native file dialogs.</summary>
     public Avalonia.Platform.Storage.IStorageProvider? StorageProvider { get; set; }

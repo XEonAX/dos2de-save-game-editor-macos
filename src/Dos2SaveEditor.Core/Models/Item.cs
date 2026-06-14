@@ -50,6 +50,21 @@ public class Item
     /// <summary>Is this a backpack (contains sub-inventory)?</summary>
     public bool IsBackpack { get; set; }
 
+    /// <summary>True if this item is equipped in an equipment slot (slot IDs 0-13).</summary>
+    public bool IsEquipped => !string.IsNullOrEmpty(Slot) && 
+        (int.TryParse(Slot, out var n) ? n is >= 0 and <= 13 : true);
+
+    /// <summary>Human-readable equipment slot name. From ositools stats::ItemSlot enum.</summary>
+    public string EquipmentSlotName => Slot switch
+    {
+        "0" => "Helmet",  "1" => "Breast",   "2" => "Leggings",
+        "3" => "Weapon",  "4" => "Shield",   "5" => "Ring",
+        "6" => "Belt",    "7" => "Boots",    "8" => "Gloves",
+        "9" => "Amulet",  "10" => "Ring2",   "11" => "Wings",
+        "12" => "Horns",  "13" => "Overhead",
+        _ => Slot ?? ""
+    };
+
     /// <summary>Number of items inside (for backpacks)</summary>
     public int NumItems { get; set; }
 
@@ -61,4 +76,8 @@ public class Item
     // ── Tree navigation ───────────────────────────────────────
     public List<Item> Children { get; set; } = [];
     public Item? Parent { get; set; }
+
+    // ── Internal: LSLib node references for write-back ────────
+    internal LSLib.LS.Node? _itemNode;
+    internal LSLib.LS.Node? _statsNode;
 }

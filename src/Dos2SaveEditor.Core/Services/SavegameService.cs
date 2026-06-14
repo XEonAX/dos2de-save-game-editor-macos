@@ -238,7 +238,7 @@ public class SavegameService : ISavegameService
 
     private Item ParseItem(Node itemNode)
     {
-        var item = new Item();
+        var item = new Item { _itemNode = itemNode };
 
         ReadAttrString(itemNode, "Stats", v => item.StatsId = v);
         ReadAttrString(itemNode, "Handle", v => item.Handle = v);
@@ -255,6 +255,7 @@ public class SavegameService : ISavegameService
         if (itemNode.Children.TryGetValue("Stats", out var statsList) && statsList.Count > 0)
         {
             var statsNode = statsList[0];
+            item._statsNode = statsNode;
             ReadAttrString(statsNode, "ItemType", v => item.Kind = v switch
             {
                 "Armor" => Utils.GameConstants.Dos2ItemKind.Armor,
@@ -415,9 +416,39 @@ public class SavegameService : ISavegameService
 
     public void UpdateItem(SavegameInfo save, Item item)
     {
-        // Items are updated in-place via ParseItem references
-        // Full implementation will write back to the node tree
-        throw new NotImplementedException("Item write-back not yet implemented");
+        if (item._itemNode == null) return;
+        var node = item._itemNode;
+
+        // Write basic attributes to the item node
+        WriteAttrString(node, "Stats", item.StatsId ?? "");
+        WriteAttrInt(node, "Amount", item.Amount);
+        WriteAttrString(node, "Slot", item.Slot ?? "");
+        WriteAttrBool(node, "IsGenerated", item.IsGenerated);
+
+        // Write to Stats sub-node
+        if (item._statsNode != null)
+        {
+            var sn = item._statsNode;
+            WriteAttrInt(sn, "Level", item.Level);
+            WriteAttrBool(sn, "CustomBaseStats", item.HasCustomBase);
+
+            // Runes — update existing RuneSlot children
+            int runeIdx = 0;
+            foreach (var childList in sn.Children.Values)
+                foreach (var child in childList)
+                    if (child.Attributes.ContainsKey("RuneStatsID"))
+                    {
+                        if (runeIdx < 3 && item.Runes[runeIdx] != null)
+                            WriteAttrString(child, "RuneStatsID", item.Runes[runeIdx]!);
+                        runeIdx++;
+                    }
+        }
+
+        // Custom name/description
+        if (node.Children.TryGetValue("CustomName", out var cnList) && cnList.Count > 0)
+            WriteAttrString(cnList[0], "CustomDisplayName", item.DisplayName ?? "");
+        if (node.Children.TryGetValue("CustomDescription", out var cdList) && cdList.Count > 0)
+            WriteAttrString(cdList[0], "CustomDescription", item.Description ?? "");
     }
 
     public void RemoveMod(SavegameInfo save, ModEntry mod)
@@ -551,6 +582,18 @@ public class SavegameService : ISavegameService
     {
         if (node.Attributes.TryGetValue(attrName, out var attr))
             attr.Value = ConvertForAttributeType(attr.Type, value);
+    }
+
+    private static void WriteAttrString(Node node, string attrName, string value)
+    {
+        if (node.Attributes.TryGetValue(attrName, out var attr))
+            attr.Value = value;
+    }
+
+    private static void WriteAttrBool(Node node, string attrName, bool value)
+    {
+        if (node.Attributes.TryGetValue(attrName, out var attr))
+            attr.Value = value;
     }
 
     private static void WriteStatInt(Node node, string attrName, int value)
